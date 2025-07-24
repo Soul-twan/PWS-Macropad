@@ -8,8 +8,9 @@
 
 #include "Adafruit_TinyUSB.h"
 
-const int buttonPin1 = 2;
-const int buttonPin2 = 3;
+const int buttonPin1 = 0;
+const int buttonPin2 = 1;
+const int buttonPin3 = 2;
 
 // Report ID
 enum {
@@ -53,9 +54,11 @@ void setup() {
   // Set up buttons
   pinMode(buttonPin1, INPUT_PULLUP);
   pinMode(buttonPin2, INPUT_PULLUP);
+  pinMode(buttonPin3, INPUT_PULLUP);
 }
 
 void process_hid() {
+  //MAKE THIS WORK WITH EVERY BUTTON!!!!!!!
   // Remote wakeup
   if (TinyUSBDevice.suspended() && digitalRead(buttonPin1) == LOW) {
     // Wake up host if we are in suspend mode
@@ -64,13 +67,39 @@ void process_hid() {
   }
 
   /*------------- Mouse -------------*/
-  /*if (usb_hid.ready() && digitalRead(buttonPin1) == LOW) {
-    int8_t const delta = 5;
-    usb_hid.mouseMove(RID_MOUSE, delta, delta); // right + down
+  if (usb_hid.ready()) {
+    static bool hasMouseButton = false;
+    static bool mouseButtonUsed = false;
 
-    // delay a bit before attempt to send keyboard report
-    delay(10);
-  }*/
+    if (digitalRead(buttonPin3) == LOW) {
+      int8_t const delta = 5;
+      //Calculated from top left of display
+      //usb_hid.mouseMove(RID_MOUSE, delta, delta); // right + down
+
+      if (!mouseButtonUsed) {
+        usb_hid.mouseButtonPress(RID_MOUSE, MOUSE_BUTTON_LEFT);
+        hasMouseButton = true;
+        mouseButtonUsed = true;
+      }
+      else {
+        if (hasMouseButton) {
+          usb_hid.mouseButtonRelease(RID_MOUSE);
+        }
+
+        hasMouseButton = false;
+      }
+
+     // delay a bit before attempt to send keyboard report
+      delay(10);
+    }
+    else {
+      hasMouseButton = false;
+
+      if (digitalRead(buttonPin3) == HIGH) {
+        mouseButtonUsed = false;
+      }
+    }
+  }
 
   /*------------- Keyboard -------------*/
   if (usb_hid.ready()) {
@@ -88,9 +117,12 @@ void process_hid() {
       usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
 
       has_key = true;
-    } else {
+    } 
+    else {
       // send empty key report if previously has key pressed
-      if (has_key) usb_hid.keyboardRelease(RID_KEYBOARD);
+      if (has_key) {
+        usb_hid.keyboardRelease(RID_KEYBOARD);
+      }
       has_key = false;
     }
 
@@ -102,15 +134,25 @@ void process_hid() {
   if (usb_hid.ready()) {
     // For list of control check out https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
 
-    // use to send consumer release report
+    // used to send consumer release report and makes sure key isn't triggered everytime process runs while button is held down
     static bool has_consumer_key = false;
+    static bool consumerKeyUsed = false;
 
-    if (digitalRead(buttonPin2) == LOW) {
+    if (digitalRead(buttonPin2) == LOW && !consumerKeyUsed) {
       usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_PLAY_PAUSE);
       has_consumer_key = true;
-    } else {
-      // release the consume key by sending zero (0x0000)
-      if (has_consumer_key) usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0);
+      consumerKeyUsed = true;
+    } 
+    else {
+      // release the consumer key by sending zero (0x0000)
+      if (has_consumer_key) {
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0);
+      }
+
+      if (digitalRead(buttonPin2) == HIGH) {
+        consumerKeyUsed = false;
+      }
+
       has_consumer_key = false;
     }
   }
