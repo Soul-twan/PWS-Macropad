@@ -2,15 +2,40 @@
  Based on example code by Adafruit
  
  MIT license, check LICENSE for more information
- Copyright (c) 2019 Twan Kneppers
+ Copyright (c) 2025 Twan Kneppers
  All text above must be included in any redistribution
 *********************************************************************/
 
 #include "Adafruit_TinyUSB.h"
 
-const int buttonPin1 = 0;
-const int buttonPin2 = 1;
-const int buttonPin3 = 2;
+// numbers in this array are GPIO pins
+const int buttonPins[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+// For list of controls check out https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
+// [0] mouse button, [1] mouse delta, [2] mouse X direction, [3] mouse Y direction, [4-9] 6 x keyboard keys, [10] consumer control
+// value should be 0 if not applicable
+// mouse direction = 0 if no movement
+// mouse button and mouse movement can't happen in the same macro
+const int keymap[12][11] = {
+  {0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_C, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_V, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_PLAY_PAUSE},
+  {MOUSE_BUTTON_LEFT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 5, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 5, -1, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 5, 0, 1, 0, 0, 0, 0, 0, 0, 0},
+  {0, 5, 0, -1, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_ALT_LEFT, HID_KEY_DELETE, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_AL_LOCAL_BROWSER},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_AL_CALCULATOR},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_MUTE}
+};
+
+int mouseButtonPin = -1;
+int pressedKeyPin = -1;
+int consumerControlPin = -1;
+int keyboardKey = 4;
+int keycodeIndex = 0;
 
 // Report ID
 enum {
@@ -51,16 +76,25 @@ void setup() {
     TinyUSBDevice.attach();
   }
 
-  // Set up buttons
-  pinMode(buttonPin1, INPUT_PULLUP);
-  pinMode(buttonPin2, INPUT_PULLUP);
-  pinMode(buttonPin3, INPUT_PULLUP);
+  for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
+    pinMode(buttonPins[pinIndex], INPUT_PULLUP);
+  }
 }
 
 void process_hid() {
-  //MAKE THIS WORK WITH EVERY BUTTON!!!!!!!
+  int digitalPinSum = 0;
+  bool anyKeyPressed = false;
+
+  for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
+    digitalPinSum = digitalPinSum + digitalRead(buttonPins[pinIndex]);
+  }
+
+  if (digitalPinSum < 12) {
+    anyKeyPressed = true;
+  }
+
   // Remote wakeup
-  if (TinyUSBDevice.suspended() && digitalRead(buttonPin1) == LOW) {
+  if (TinyUSBDevice.suspended() && anyKeyPressed == true) {
     // Wake up host if we are in suspend mode
     // and REMOTE_WAKEUP feature is enabled by host
     TinyUSBDevice.remoteWakeup();
@@ -69,34 +103,33 @@ void process_hid() {
   /*------------- Mouse -------------*/
   if (usb_hid.ready()) {
     static bool hasMouseButton = false;
-    static bool mouseButtonUsed = false;
 
-    if (digitalRead(buttonPin3) == LOW) {
-      int8_t const delta = 5;
-      //Calculated from top left of display
-      //usb_hid.mouseMove(RID_MOUSE, delta, delta); // right + down
-
-      if (!mouseButtonUsed) {
-        usb_hid.mouseButtonPress(RID_MOUSE, MOUSE_BUTTON_LEFT);
-        hasMouseButton = true;
-        mouseButtonUsed = true;
-      }
-      else {
-        if (hasMouseButton) {
-          usb_hid.mouseButtonRelease(RID_MOUSE);
-        }
-
+    if (mouseButtonPin != -1 && hasMouseButton) {
+      if (digitalRead(mouseButtonPin) == HIGH) {
+        usb_hid.mouseButtonRelease(RID_MOUSE);
         hasMouseButton = false;
+        mouseButtonPin = -1;
+        delay(10);
       }
-
-     // delay a bit before attempt to send keyboard report
-      delay(10);
     }
-    else {
-      hasMouseButton = false;
 
-      if (digitalRead(buttonPin3) == HIGH) {
-        mouseButtonUsed = false;
+    for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
+      if (digitalRead(buttonPins[pinIndex]) == LOW) {    
+        int delta = keymap[pinIndex][1];
+
+        if (delta > 0) {
+          int deltaX = keymap[pinIndex][2] * delta;
+          int deltaY = keymap[pinIndex][3] * delta;
+          //Calculated from top left of display
+          usb_hid.mouseMove(RID_MOUSE, deltaX, deltaY);
+          delay(10);
+        }
+        else if (keymap[pinIndex][0] != 0 && !hasMouseButton) {
+          usb_hid.mouseButtonPress(RID_MOUSE, keymap[pinIndex][0]);
+          hasMouseButton = true;
+          mouseButtonPin = pinIndex;
+          delay(10);
+        }
       }
     }
   }
@@ -106,54 +139,73 @@ void process_hid() {
     // use to send key release report
     static bool has_key = false;
 
-    if (digitalRead(buttonPin1) == LOW) {
-      // A maximum of six (6) keys can be sent in one (1) report
-      // Adding to the keycode array adds a key that is being 'pressed' in order from 0 to 5
-      uint8_t keycode[6] = {0};
-      keycode[0] = HID_KEY_SHIFT_LEFT;
-      keycode[1] = HID_KEY_A;
-
-      //I don't know what the 0 means
-      usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
-
-      has_key = true;
-    } 
-    else {
-      // send empty key report if previously has key pressed
-      if (has_key) {
+    if (pressedKeyPin != -1 && has_key) {
+      if (digitalRead(pressedKeyPin) == HIGH) {
         usb_hid.keyboardRelease(RID_KEYBOARD);
+        pressedKeyPin = -1;
+        has_key = false;
+        delay(10);
       }
-      has_key = false;
     }
 
-    // delay a bit before attempt to send consumer report
-    delay(10);
+    for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
+      if (digitalRead(buttonPins[pinIndex]) == LOW && keymap[pinIndex][4] != 0 && !has_key) {
+        // A maximum of six (6) keys can be sent in one (1) report
+        // Adding to the keycode array adds a key that is being 'pressed' in order from 0 to 5
+        uint8_t keycode[6] = {0};
+        
+        //Turning this into a for loop doesn't work
+        keycode[0] = keymap[pinIndex][4];
+        keycode[1] = keymap[pinIndex][5];
+        keycode[2] = keymap[pinIndex][6];
+        keycode[3] = keymap[pinIndex][7];
+        keycode[4] = keymap[pinIndex][8];
+        keycode[5] = keymap[pinIndex][9];
+
+        /*for (keyboardKey = 4; keyboardKey < 10; keyboardKey++) {
+          for (keycodeIndex = 0; keycodeIndex < 6; keycodeIndex++) {
+            keycode[keycodeIndex] = keymap[pinIndex][keyboardKey];
+          }
+        }*/
+
+        //I don't know what the 0 means
+        usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
+        pressedKeyPin = buttonPins[pinIndex];
+        has_key = true;
+        delay(10);
+      } 
+     else {
+      }
+    }
   }
 
   /*------------- Consumer Control -------------*/
   if (usb_hid.ready()) {
-    // For list of control check out https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
-
     // used to send consumer release report and makes sure key isn't triggered everytime process runs while button is held down
     static bool has_consumer_key = false;
     static bool consumerKeyUsed = false;
 
-    if (digitalRead(buttonPin2) == LOW && !consumerKeyUsed) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_PLAY_PAUSE);
-      has_consumer_key = true;
-      consumerKeyUsed = true;
-    } 
-    else {
-      // release the consumer key by sending zero (0x0000)
-      if (has_consumer_key) {
-        usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0);
+    for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
+      if (digitalRead(buttonPins[pinIndex]) == LOW && !consumerKeyUsed) {
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, keymap[pinIndex][10]);
+        has_consumer_key = true;
+        consumerKeyUsed = true;
+        consumerControlPin = pinIndex;
+      } 
+      else {
+        // release the consumer key by sending zero (0x0000)
+        if (has_consumer_key) {
+          usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0);
+          has_consumer_key = false;
+        }
       }
 
-      if (digitalRead(buttonPin2) == HIGH) {
-        consumerKeyUsed = false;
+      if (consumerControlPin != -1) {
+        if (digitalRead(buttonPins[consumerControlPin]) == HIGH) {
+          consumerKeyUsed = false;
+          consumerControlPin = -1;
+        }
       }
-
-      has_consumer_key = false;
     }
   }
 }
