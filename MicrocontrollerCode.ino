@@ -8,16 +8,47 @@
 
 #include "Adafruit_TinyUSB.h"
 
+// Pin designation
 // Numbers in this array are GPIO pins
 const int buttonPins[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+const int keymapSwitcherPin = 22;
 
+bool keymapSwitcherUsed = false;
+
+int keymapIndex = 0;
 // For list of controls check out https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
 // [0] mouse button, [1] mouse delta, [2] mouse X direction, [3] mouse Y direction, [4] scroll delta [5] scroll vertical, [6] scroll horizontal, [7-12] 6 x keyboard keys, [13] consumer control
 // value should be 0 if not applicable
 // mouse direction = 0 if no movement
 // mouse button and mouse movement can't happen in the same macro
-const int keymap[12][14] = {
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_C, 0, 0, 0, 0, 0},
+const int keymap[3][12][14] = {
+  {{0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F13, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F14, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F15, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F16, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F17, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F18, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F19, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F20, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F21, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F22, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F23, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_SHIFT_LEFT, HID_KEY_ALT_LEFT, HID_KEY_GUI_LEFT, HID_KEY_F24, 0, 0}},
+
+  {{0, 0, 0, 0, 0, 0, 0, HID_KEY_7, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_8, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_9, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_4, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_5, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_6, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_1, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_2, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_3, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_PERIOD, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_ENTER, 0, 0, 0, 0, 0, 0}},
+
+  {{0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_C, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_V, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_PLAY_PAUSE},
   {MOUSE_BUTTON_LEFT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -26,14 +57,18 @@ const int keymap[12][14] = {
   {0, 5, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   {0, 5, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_ALT_LEFT, HID_KEY_DELETE, 0, 0, 0, 0},
-  {0, 0, 0, 0, 25, -1, 1, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 2, -1, 1, 0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_AL_CALCULATOR},
-  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_MUTE}
-};
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_MUTE}}
+  };
 
 int mouseButtonPin = -1;
 int pressedKeyPin = -1;
 int consumerControlPin = -1;
+
+bool hasMouseButton = false;
+bool hasKeyboardKey = false;
+bool consumerKeyUsed = false;
 
 // Report ID
 enum {
@@ -78,6 +113,8 @@ void setup() {
   for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
     pinMode(buttonPins[pinIndex], INPUT_PULLUP);
   }
+
+  pinMode(keymapSwitcherPin, INPUT_PULLUP);
 }
 
 void process_hid() {
@@ -101,8 +138,6 @@ void process_hid() {
   if (usb_hid.ready()) {
 
     // Mouse button release
-    static bool hasMouseButton = false;
-
     if (mouseButtonPin != -1 && hasMouseButton) {
       if (digitalRead(mouseButtonPin) == HIGH) {
         usb_hid.mouseButtonRelease(RID_MOUSE);
@@ -113,8 +148,6 @@ void process_hid() {
     }
 
     // Keyboard key release
-    static bool hasKeyboardKey = false;
-
     if (pressedKeyPin != -1 && hasKeyboardKey) {
       if (digitalRead(pressedKeyPin) == HIGH) {
         usb_hid.keyboardRelease(RID_KEYBOARD);
@@ -125,32 +158,37 @@ void process_hid() {
     }
 
     // Consumer key release
-    static bool hasConsumerKey = false;
-    static bool consumerKeyUsed = false;
+    if (consumerControlPin != -1 && consumerKeyUsed) {
+      if (digitalRead(buttonPins[consumerControlPin]) == HIGH) {
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+        consumerKeyUsed = false;
+        consumerControlPin = -1;
+      }
+    }
 
     for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
 
       // Mouse control
       if (digitalRead(buttonPins[pinIndex]) == LOW) {    
-        int mouseDelta = keymap[pinIndex][1];
+        int mouseDelta = keymap[keymapIndex][pinIndex][1];
 
         if (mouseDelta > 0) {
-          int deltaX = keymap[pinIndex][2] * mouseDelta;
-          int deltaY = keymap[pinIndex][3] * mouseDelta;
+          int deltaX = keymap[keymapIndex][pinIndex][2] * mouseDelta;
+          int deltaY = keymap[keymapIndex][pinIndex][3] * mouseDelta;
           //Calculated from top left of display
           usb_hid.mouseMove(RID_MOUSE, deltaX, deltaY);
           delay(10);
         }
-        else if (keymap[pinIndex][0] != 0 && !hasMouseButton) {
-          usb_hid.mouseButtonPress(RID_MOUSE, keymap[pinIndex][0]);
+        else if (keymap[keymapIndex][pinIndex][0] != 0 && !hasMouseButton) {
+          usb_hid.mouseButtonPress(RID_MOUSE, keymap[keymapIndex][pinIndex][0]);
           hasMouseButton = true;
           mouseButtonPin = pinIndex;
           delay(10);
         }
-        else if (keymap[pinIndex][4] != 0) {
-          int scrollDelta = keymap[pinIndex][4];
-          int verticalScrollDirection = keymap[pinIndex][5];
-          int horizontalScrollDirection = keymap[pinIndex][6];
+        else if (keymap[keymapIndex][pinIndex][4] != 0) {
+          int scrollDelta = keymap[keymapIndex][pinIndex][4];
+          int verticalScrollDirection = keymap[keymapIndex][pinIndex][5];
+          int horizontalScrollDirection = keymap[keymapIndex][pinIndex][6];
 
           int verticalScroll = scrollDelta * verticalScrollDirection;
           int horizontalScroll = scrollDelta * horizontalScrollDirection;
@@ -160,18 +198,18 @@ void process_hid() {
       }
 
       // Keyboard control
-      if (digitalRead(buttonPins[pinIndex]) == LOW && keymap[pinIndex][4] != 0 && !hasKeyboardKey) {
+      if (digitalRead(buttonPins[pinIndex]) == LOW && keymap[keymapIndex][pinIndex][7] != 0 && !hasKeyboardKey) {
         // A maximum of 6 keys can be sent in 1 report
         // Adding to the keycode array adds a key that is being 'pressed' in order from 0 to 5
         uint8_t keycode[6] = {0};
         
         //Turning this into a for loop doesn't work
-        keycode[0] = keymap[pinIndex][7];
-        keycode[1] = keymap[pinIndex][8];
-        keycode[2] = keymap[pinIndex][9];
-        keycode[3] = keymap[pinIndex][10];
-        keycode[4] = keymap[pinIndex][11];
-        keycode[5] = keymap[pinIndex][12];
+        keycode[0] = keymap[keymapIndex][pinIndex][7];
+        keycode[1] = keymap[keymapIndex][pinIndex][8];
+        keycode[2] = keymap[keymapIndex][pinIndex][9];
+        keycode[3] = keymap[keymapIndex][pinIndex][10];
+        keycode[4] = keymap[keymapIndex][pinIndex][11];
+        keycode[5] = keymap[keymapIndex][pinIndex][12];
 
         //I don't know what the 0 means
         usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
@@ -182,30 +220,28 @@ void process_hid() {
 
       // Consumer control
       if (digitalRead(buttonPins[pinIndex]) == LOW && !consumerKeyUsed) {
-        usb_hid.sendReport16(RID_CONSUMER_CONTROL, keymap[pinIndex][13]);
-        hasConsumerKey = true;
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, keymap[keymapIndex][pinIndex][13]);
         consumerKeyUsed = true;
         consumerControlPin = pinIndex;
       } 
-      else {
-        // release the consumer key by sending zero (0x0000)
-        if (hasConsumerKey) {
-          usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0);
-          hasConsumerKey = false;
-        }
-      }
-
-      if (consumerControlPin != -1) {
-        if (digitalRead(buttonPins[consumerControlPin]) == HIGH) {
-          consumerKeyUsed = false;
-          consumerControlPin = -1;
-        }
-      }
     }
   }
 }
 
 void loop() {
+  if (digitalRead(keymapSwitcherPin) == LOW && !keymapSwitcherUsed) {
+    keymapSwitcherUsed = true;
+    if (keymapIndex == 2) { 
+      keymapIndex = 0;
+    }
+    else {
+      keymapIndex++;
+    }
+  }
+  else if (digitalRead(keymapSwitcherPin) == HIGH && keymapSwitcherUsed) {
+    keymapSwitcherUsed = false;
+  }
+
   #ifdef TINYUSB_NEED_POLLING_TASK
   // Manual call tud_task since it isn't called by Core's background
   TinyUSBDevice.task();
