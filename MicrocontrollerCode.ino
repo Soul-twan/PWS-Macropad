@@ -8,10 +8,17 @@
 
 #include "Adafruit_TinyUSB.h"
 
-// Pin designation
+// Digital pin designation
 // Numbers in this array are GPIO pins
 const int buttonPins[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-const int keymapSwitcherPin = 22;
+const int encoderOneChannelA = 18;
+const int encoderOneChannelB = 19;
+const int encoderOneBtn = 16;
+const int encoderTwoChannelA = 20;
+const int encoderTwoChannelB = 21;
+const int encoderTwoBtn = 17;
+
+const int keymapSwitcherPin = encoderOneBtn;
 
 bool keymapSwitcherUsed = false;
 
@@ -64,11 +71,16 @@ const int keymap[3][12][14] = {
 
 int mouseButtonPin = -1;
 int pressedKeyPin = -1;
-int consumerControlPin = -1;
+int consumerControlPinIndex = -1;
 
 bool hasMouseButton = false;
 bool hasKeyboardKey = false;
 bool consumerKeyUsed = false;
+bool encoderTwoBtnUsed = false;
+
+// 0 clockwise, 1 counter clockwise
+int encoderOneDirection = -1;
+int encoderTwoDirection = -1;
 
 // Report ID
 enum {
@@ -114,6 +126,12 @@ void setup() {
     pinMode(buttonPins[pinIndex], INPUT_PULLUP);
   }
 
+  pinMode(encoderOneChannelA, INPUT_PULLUP);
+  pinMode(encoderOneChannelB, INPUT_PULLUP);
+  pinMode(encoderOneBtn, INPUT_PULLUP);
+  pinMode(encoderTwoChannelA, INPUT_PULLUP);
+  pinMode(encoderTwoChannelB, INPUT_PULLUP);
+  pinMode(encoderTwoBtn, INPUT_PULLUP);
   pinMode(keymapSwitcherPin, INPUT_PULLUP);
 }
 
@@ -158,72 +176,112 @@ void process_hid() {
     }
 
     // Consumer key release
-    if (consumerControlPin != -1 && consumerKeyUsed) {
-      if (digitalRead(buttonPins[consumerControlPin]) == HIGH) {
+    if (consumerControlPinIndex != -1 && consumerKeyUsed) {
+      if (digitalRead(buttonPins[consumerControlPinIndex]) == HIGH) {
         usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
         consumerKeyUsed = false;
-        consumerControlPin = -1;
+        consumerControlPinIndex = -1;
+        delay(10);
       }
     }
 
-    for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
+    // Encoder release
+    if (encoderTwoBtnUsed && digitalRead(encoderTwoBtn) == HIGH) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+      encoderTwoBtnUsed = false;   
+      delay(10);
+    }
 
-      // Mouse control
-      if (digitalRead(buttonPins[pinIndex]) == LOW) {    
-        int mouseDelta = keymap[keymapIndex][pinIndex][1];
+    // Encoder control
+    if (digitalRead(encoderTwoBtn) == LOW && !encoderTwoBtnUsed) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_MUTE);
+      encoderTwoBtnUsed = true;
+    }
 
-        if (mouseDelta > 0) {
-          int deltaX = keymap[keymapIndex][pinIndex][2] * mouseDelta;
-          int deltaY = keymap[keymapIndex][pinIndex][3] * mouseDelta;
-          //Calculated from top left of display
-          usb_hid.mouseMove(RID_MOUSE, deltaX, deltaY);
-          delay(10);
+    if (anyKeyPressed == true) {
+      for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
+
+        // Mouse control
+        if (digitalRead(buttonPins[pinIndex]) == LOW) {    
+          int mouseDelta = keymap[keymapIndex][pinIndex][1];
+
+          if (mouseDelta > 0) {
+            int deltaX = keymap[keymapIndex][pinIndex][2] * mouseDelta;
+            int deltaY = keymap[keymapIndex][pinIndex][3] * mouseDelta;
+            //Calculated from top left of display
+            usb_hid.mouseMove(RID_MOUSE, deltaX, deltaY);
+            delay(10);
+          }
+          else if (keymap[keymapIndex][pinIndex][0] != 0 && !hasMouseButton) {
+            usb_hid.mouseButtonPress(RID_MOUSE, keymap[keymapIndex][pinIndex][0]);
+            hasMouseButton = true;
+            mouseButtonPin = pinIndex;
+          }
+          else if (keymap[keymapIndex][pinIndex][4] != 0) {
+            int scrollDelta = keymap[keymapIndex][pinIndex][4];
+            int verticalScrollDirection = keymap[keymapIndex][pinIndex][5];
+            int horizontalScrollDirection = keymap[keymapIndex][pinIndex][6];
+
+            int verticalScroll = scrollDelta * verticalScrollDirection;
+            int horizontalScroll = scrollDelta * horizontalScrollDirection;
+
+            usb_hid.mouseScroll(RID_MOUSE, verticalScroll, horizontalScroll);
+          }
         }
-        else if (keymap[keymapIndex][pinIndex][0] != 0 && !hasMouseButton) {
-          usb_hid.mouseButtonPress(RID_MOUSE, keymap[keymapIndex][pinIndex][0]);
-          hasMouseButton = true;
-          mouseButtonPin = pinIndex;
-          delay(10);
-        }
-        else if (keymap[keymapIndex][pinIndex][4] != 0) {
-          int scrollDelta = keymap[keymapIndex][pinIndex][4];
-          int verticalScrollDirection = keymap[keymapIndex][pinIndex][5];
-          int horizontalScrollDirection = keymap[keymapIndex][pinIndex][6];
 
-          int verticalScroll = scrollDelta * verticalScrollDirection;
-          int horizontalScroll = scrollDelta * horizontalScrollDirection;
-
-          usb_hid.mouseScroll(RID_MOUSE, verticalScroll, horizontalScroll);
-        }
-      }
-
-      // Keyboard control
-      if (digitalRead(buttonPins[pinIndex]) == LOW && keymap[keymapIndex][pinIndex][7] != 0 && !hasKeyboardKey) {
-        // A maximum of 6 keys can be sent in 1 report
-        // Adding to the keycode array adds a key that is being 'pressed' in order from 0 to 5
-        uint8_t keycode[6] = {0};
+        // Keyboard control
+        if (digitalRead(buttonPins[pinIndex]) == LOW && keymap[keymapIndex][pinIndex][7] != 0 && !hasKeyboardKey) {
+          // A maximum of 6 keys can be sent in 1 report
+          // Adding to the keycode array adds a key that is being 'pressed' in order from 0 to 5
+          uint8_t keycode[6] = {0};
         
-        //Turning this into a for loop doesn't work
-        keycode[0] = keymap[keymapIndex][pinIndex][7];
-        keycode[1] = keymap[keymapIndex][pinIndex][8];
-        keycode[2] = keymap[keymapIndex][pinIndex][9];
-        keycode[3] = keymap[keymapIndex][pinIndex][10];
-        keycode[4] = keymap[keymapIndex][pinIndex][11];
-        keycode[5] = keymap[keymapIndex][pinIndex][12];
+          //Turning this into a for loop doesn't work
+          keycode[0] = keymap[keymapIndex][pinIndex][7];
+          keycode[1] = keymap[keymapIndex][pinIndex][8];
+          keycode[2] = keymap[keymapIndex][pinIndex][9];
+          keycode[3] = keymap[keymapIndex][pinIndex][10];
+          keycode[4] = keymap[keymapIndex][pinIndex][11];
+          keycode[5] = keymap[keymapIndex][pinIndex][12];
 
-        //I don't know what the 0 means
-        usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
-        pressedKeyPin = buttonPins[pinIndex];
-        hasKeyboardKey = true;
-        delay(10);
-      } 
+          //I don't know what the 0 means
+          usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
+          pressedKeyPin = buttonPins[pinIndex];
+          hasKeyboardKey = true;
+        } 
 
-      // Consumer control
-      if (digitalRead(buttonPins[pinIndex]) == LOW && !consumerKeyUsed) {
-        usb_hid.sendReport16(RID_CONSUMER_CONTROL, keymap[keymapIndex][pinIndex][13]);
-        consumerKeyUsed = true;
-        consumerControlPin = pinIndex;
-      } 
+        // Consumer control
+        if (digitalRead(buttonPins[pinIndex]) == LOW && !consumerKeyUsed) {
+          usb_hid.sendReport16(RID_CONSUMER_CONTROL, keymap[keymapIndex][pinIndex][13]);
+          consumerKeyUsed = true;
+          consumerControlPinIndex = pinIndex;
+        } 
+      }  
+    }
+  }
+}
+
+void encoderOne() {
+  if (usb_hid.ready()) {
+    if (encoderOneDirection == 0) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_BRIGHTNESS_INCREMENT);
+      delay(10);
+    }
+    else if (encoderOneDirection == 1) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_BRIGHTNESS_DECREMENT);
+      delay(10);
+    }
+  }
+}
+
+void encoderTwo() {
+  if (usb_hid.ready()) {
+    if (encoderTwoDirection == 0) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_VOLUME_INCREMENT);
+      delay(10);
+    }
+    else if (encoderTwoDirection == 1) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_VOLUME_DECREMENT);
+      delay(10);
     }
   }
 }
@@ -240,6 +298,40 @@ void loop() {
   }
   else if (digitalRead(keymapSwitcherPin) == HIGH && keymapSwitcherUsed) {
     keymapSwitcherUsed = false;
+    delay(10);
+    // This delay prevents the microcontroller from sensing another press upon releasing the button
+  }
+
+  // Encoder one rotation
+  if (digitalRead(encoderOneChannelA) == LOW && digitalRead(encoderOneChannelB) == HIGH && encoderOneDirection == -1) {
+    encoderOneDirection = 0;
+    encoderOne();
+  }
+  else if (digitalRead(encoderOneChannelA) == HIGH && digitalRead(encoderOneChannelB) == LOW && encoderOneDirection == -1) {
+    encoderOneDirection = 1;
+    encoderOne();
+  }
+
+  if (usb_hid.ready() && digitalRead(encoderOneChannelA) == HIGH && digitalRead(encoderOneChannelB) == HIGH) {
+    usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+    encoderOneDirection = -1;
+    delay(10);
+  }
+
+  // Encoder two rotation
+  if (digitalRead(encoderTwoChannelA) == LOW && digitalRead(encoderTwoChannelB) == HIGH && encoderTwoDirection == -1) {
+    encoderTwoDirection = 0;
+    encoderTwo();
+  }
+  else if (digitalRead(encoderTwoChannelA) == HIGH && digitalRead(encoderTwoChannelB) == LOW && encoderTwoDirection == -1) {
+    encoderTwoDirection = 1;
+    encoderTwo();
+  }
+
+  if (usb_hid.ready() && digitalRead(encoderTwoChannelA) == HIGH && digitalRead(encoderTwoChannelB) == HIGH) {
+    usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+    encoderTwoDirection = -1;
+    delay(10);
   }
 
   #ifdef TINYUSB_NEED_POLLING_TASK
