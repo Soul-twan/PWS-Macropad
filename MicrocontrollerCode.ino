@@ -56,18 +56,18 @@ const int keymap[3][12][14] = {
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_ENTER, 0, 0, 0, 0, 0, 0}},
 
-  {{0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_C, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_V, 0, 0, 0, 0, 0},
+  {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_SCAN_PREVIOUS},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_SCAN_NEXT},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_PLAY_PAUSE},
-  {MOUSE_BUTTON_LEFT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-  {0, 5, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-  {0, 5, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-  {0, 5, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-  {0, 5, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_ALT_LEFT, HID_KEY_DELETE, 0, 0, 0, 0},
-  {0, 0, 0, 0, 2, -1, 1, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_X, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_C, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_V, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_Z, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_CONTROL_LEFT, HID_KEY_S, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_ALT_LEFT, HID_KEY_TAB, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_AL_CALCULATOR},
-  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_MUTE}}
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_PRINT_SCREEN, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_DELETE, 0, 0, 0, 0, 0, 0}}
   };
 
 int mouseButtonPin = -1;
@@ -198,7 +198,7 @@ void keys() {
     // Consumer key release
     if (consumerControlPinIndex != -1 && consumerKeyUsed) {
       if (digitalRead(buttonPins[consumerControlPinIndex]) == HIGH) {
-        usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_KEY_NONE);
         consumerKeyUsed = false;
         consumerControlPinIndex = -1;
         delay(10);
@@ -244,14 +244,9 @@ void keys() {
           // Adding to the keycode array adds a key that is being 'pressed' in order from 0 to 5
           uint8_t keycode[6] = {0};
         
-          //Turning this into a for loop doesn't 
-          // TRY THIS AGAIN
-          keycode[0] = keymap[keymapIndex][pinIndex][7];
-          keycode[1] = keymap[keymapIndex][pinIndex][8];
-          keycode[2] = keymap[keymapIndex][pinIndex][9];
-          keycode[3] = keymap[keymapIndex][pinIndex][10];
-          keycode[4] = keymap[keymapIndex][pinIndex][11];
-          keycode[5] = keymap[keymapIndex][pinIndex][12];
+          for (int codeIndex = 0; codeIndex < 6; codeIndex++) {
+            keycode[codeIndex] = keymap[keymapIndex][pinIndex][(codeIndex + 7)];
+          }
 
           //I don't know what the 0 means
           usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
@@ -293,7 +288,7 @@ void encoderOne() {
       encoderOneSent = true;
     }
     else {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_KEY_NONE);
       encoderOneDirection = -1;
       encoderOneSent = false;
       delay(10);
@@ -322,7 +317,7 @@ void encoderTwo() {
       encoderTwoSent = true;
     }
     else {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_KEY_NONE);
       encoderTwoDirection = -1;
       encoderTwoSent = false;
       delay(10);
@@ -332,7 +327,7 @@ void encoderTwo() {
   // Button
   if (usb_hid.ready()) {
     if (encoderTwoBtnUsed && digitalRead(encoderTwoBtn) == HIGH) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_KEY_NONE);
       encoderTwoBtnUsed = false;   
       delay(10);
     }
