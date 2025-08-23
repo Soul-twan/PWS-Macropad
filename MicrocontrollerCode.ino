@@ -11,9 +11,11 @@
 // Digital pin designation
 // Numbers in this array are GPIO pins
 const int buttonPins[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
 const int encoderOneChannelA = 18;
 const int encoderOneChannelB = 19;
 const int encoderOneBtn = 16;
+
 const int encoderTwoChannelA = 20;
 const int encoderTwoChannelB = 21;
 const int encoderTwoBtn = 17;
@@ -21,7 +23,6 @@ const int encoderTwoBtn = 17;
 const int keymapSwitcherPin = encoderOneBtn;
 
 bool keymapSwitcherUsed = false;
-
 int keymapIndex = 0;
 // For list of controls check out https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
 // [0] mouse button, [1] mouse delta, [2] mouse X direction, [3] mouse Y direction, [4] scroll delta [5] scroll vertical, [6] scroll horizontal, [7-12] 6 x keyboard keys, [13] consumer control
@@ -76,11 +77,15 @@ int consumerControlPinIndex = -1;
 bool hasMouseButton = false;
 bool hasKeyboardKey = false;
 bool consumerKeyUsed = false;
+
 bool encoderTwoBtnUsed = false;
 
 // 0 clockwise, 1 counter clockwise
 int encoderOneDirection = -1;
 int encoderTwoDirection = -1;
+
+bool encoderOneSent = false;
+bool encoderTwoSent = false;
 
 // Report ID
 enum {
@@ -135,8 +140,23 @@ void setup() {
   pinMode(keymapSwitcherPin, INPUT_PULLUP);
 }
 
-void process_hid() {
+void keymapSwitcher() {
+  if (digitalRead(keymapSwitcherPin) == LOW && !keymapSwitcherUsed) {
+    keymapSwitcherUsed = true;
+    if (keymapIndex == 2) { 
+      keymapIndex = 0;
+    }
+    else {
+      keymapIndex++;
+    }
+  }
+  else if (digitalRead(keymapSwitcherPin) == HIGH && keymapSwitcherUsed) {
+    keymapSwitcherUsed = false;
+    delay(10);
+  }
+}
 
+void keys() {
   // Remote wakeup
   int digitalPinSum = 0;
   bool anyKeyPressed = false;
@@ -185,19 +205,6 @@ void process_hid() {
       }
     }
 
-    // Encoder release
-    if (encoderTwoBtnUsed && digitalRead(encoderTwoBtn) == HIGH) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
-      encoderTwoBtnUsed = false;   
-      delay(10);
-    }
-
-    // Encoder control
-    if (digitalRead(encoderTwoBtn) == LOW && !encoderTwoBtnUsed) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_MUTE);
-      encoderTwoBtnUsed = true;
-    }
-
     if (anyKeyPressed == true) {
       for (int pinIndex = 0; pinIndex < 12; pinIndex++) {
 
@@ -216,6 +223,7 @@ void process_hid() {
             usb_hid.mouseButtonPress(RID_MOUSE, keymap[keymapIndex][pinIndex][0]);
             hasMouseButton = true;
             mouseButtonPin = pinIndex;
+            delay(10);
           }
           else if (keymap[keymapIndex][pinIndex][4] != 0) {
             int scrollDelta = keymap[keymapIndex][pinIndex][4];
@@ -226,6 +234,7 @@ void process_hid() {
             int horizontalScroll = scrollDelta * horizontalScrollDirection;
 
             usb_hid.mouseScroll(RID_MOUSE, verticalScroll, horizontalScroll);
+            delay(10);
           }
         }
 
@@ -235,7 +244,8 @@ void process_hid() {
           // Adding to the keycode array adds a key that is being 'pressed' in order from 0 to 5
           uint8_t keycode[6] = {0};
         
-          //Turning this into a for loop doesn't work
+          //Turning this into a for loop doesn't 
+          // TRY THIS AGAIN
           keycode[0] = keymap[keymapIndex][pinIndex][7];
           keycode[1] = keymap[keymapIndex][pinIndex][8];
           keycode[2] = keymap[keymapIndex][pinIndex][9];
@@ -247,6 +257,7 @@ void process_hid() {
           usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
           pressedKeyPin = buttonPins[pinIndex];
           hasKeyboardKey = true;
+          delay(10);
         } 
 
         // Consumer control
@@ -254,6 +265,7 @@ void process_hid() {
           usb_hid.sendReport16(RID_CONSUMER_CONTROL, keymap[keymapIndex][pinIndex][13]);
           consumerKeyUsed = true;
           consumerControlPinIndex = pinIndex;
+          delay (10);
         } 
       }  
     }
@@ -261,79 +273,78 @@ void process_hid() {
 }
 
 void encoderOne() {
-  if (usb_hid.ready()) {
-    if (encoderOneDirection == 0) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_BRIGHTNESS_INCREMENT);
-      delay(10);
+  // Rotation
+  if (encoderOneDirection == -1 && digitalRead(encoderOneChannelA) == LOW && digitalRead(encoderOneChannelB) == HIGH) {
+    encoderOneDirection = 0;
+  }
+  else if (encoderOneDirection == -1 && digitalRead(encoderOneChannelA) == HIGH && digitalRead(encoderOneChannelB) == LOW) {
+    encoderOneDirection = 1;
+  }
+  else if (encoderOneDirection != -1 && usb_hid.ready() && digitalRead(encoderOneChannelA) == HIGH && digitalRead(encoderOneChannelB) == HIGH) {
+    if (!encoderOneSent) {
+      if (encoderOneDirection == 0) {
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_BRIGHTNESS_INCREMENT);
+        delay(10);
+      }
+      else {
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_BRIGHTNESS_DECREMENT);
+        delay(10);
+      }
+      encoderOneSent = true;
     }
-    else if (encoderOneDirection == 1) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_BRIGHTNESS_DECREMENT);
+    else {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+      encoderOneDirection = -1;
+      encoderOneSent = false;
       delay(10);
     }
   }
 }
 
 void encoderTwo() {
-  if (usb_hid.ready()) {
-    if (encoderTwoDirection == 0) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_VOLUME_INCREMENT);
+  // Rotation
+  if (encoderTwoDirection == -1 && digitalRead(encoderTwoChannelA) == LOW && digitalRead(encoderTwoChannelB) == HIGH) {
+    encoderTwoDirection = 0;
+  }
+  else if (encoderTwoDirection == -1 && digitalRead(encoderTwoChannelA) == HIGH && digitalRead(encoderTwoChannelB) == LOW) {
+    encoderTwoDirection = 1;
+  }
+  else if (encoderTwoDirection != -1 && usb_hid.ready() && digitalRead(encoderTwoChannelA) == HIGH && digitalRead(encoderTwoChannelB) == HIGH) {
+    if (!encoderTwoSent) {
+      if (encoderTwoDirection == 0) {
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_VOLUME_INCREMENT);
+        delay(10);
+      }
+      else {
+        usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_VOLUME_DECREMENT);
+        delay(10);
+      }
+      encoderTwoSent = true;
+    }
+    else {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+      encoderTwoDirection = -1;
+      encoderTwoSent = false;
       delay(10);
     }
-    else if (encoderTwoDirection == 1) {
-      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_VOLUME_DECREMENT);
+  }
+
+  // Button
+  if (usb_hid.ready()) {
+    if (encoderTwoBtnUsed && digitalRead(encoderTwoBtn) == HIGH) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
+      encoderTwoBtnUsed = false;   
       delay(10);
+    }
+    else if (!encoderTwoBtnUsed && digitalRead(encoderTwoBtn) == LOW) {
+      usb_hid.sendReport16(RID_CONSUMER_CONTROL, HID_USAGE_CONSUMER_MUTE);
+      encoderTwoBtnUsed = true;
+      delay (10);
     }
   }
 }
 
 void loop() {
-  if (digitalRead(keymapSwitcherPin) == LOW && !keymapSwitcherUsed) {
-    keymapSwitcherUsed = true;
-    if (keymapIndex == 2) { 
-      keymapIndex = 0;
-    }
-    else {
-      keymapIndex++;
-    }
-  }
-  else if (digitalRead(keymapSwitcherPin) == HIGH && keymapSwitcherUsed) {
-    keymapSwitcherUsed = false;
-    delay(10);
-    // This delay prevents the microcontroller from sensing another press upon releasing the button
-  }
-
-  // Encoder one rotation
-  if (digitalRead(encoderOneChannelA) == LOW && digitalRead(encoderOneChannelB) == HIGH && encoderOneDirection == -1) {
-    encoderOneDirection = 0;
-    encoderOne();
-  }
-  else if (digitalRead(encoderOneChannelA) == HIGH && digitalRead(encoderOneChannelB) == LOW && encoderOneDirection == -1) {
-    encoderOneDirection = 1;
-    encoderOne();
-  }
-
-  if (usb_hid.ready() && digitalRead(encoderOneChannelA) == HIGH && digitalRead(encoderOneChannelB) == HIGH) {
-    usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
-    encoderOneDirection = -1;
-    delay(10);
-  }
-
-  // Encoder two rotation
-  if (digitalRead(encoderTwoChannelA) == LOW && digitalRead(encoderTwoChannelB) == HIGH && encoderTwoDirection == -1) {
-    encoderTwoDirection = 0;
-    encoderTwo();
-  }
-  else if (digitalRead(encoderTwoChannelA) == HIGH && digitalRead(encoderTwoChannelB) == LOW && encoderTwoDirection == -1) {
-    encoderTwoDirection = 1;
-    encoderTwo();
-  }
-
-  if (usb_hid.ready() && digitalRead(encoderTwoChannelA) == HIGH && digitalRead(encoderTwoChannelB) == HIGH) {
-    usb_hid.sendReport16(RID_CONSUMER_CONTROL, 0x00);
-    encoderTwoDirection = -1;
-    delay(10);
-  }
-
   #ifdef TINYUSB_NEED_POLLING_TASK
   // Manual call tud_task since it isn't called by Core's background
   TinyUSBDevice.task();
@@ -344,10 +355,14 @@ void loop() {
     return;
   }
 
-  // poll gpio once each 10 ms
-  static uint32_t ms = 0;
-  if (millis() - ms > 10) {
-    ms = millis();
-    process_hid();
-  }
+  // Switches keymap on button press
+  keymapSwitcher();
+
+  // Encoder one
+  encoderOne();
+
+  // Encoder two
+  encoderTwo();
+
+  keys();
 }
