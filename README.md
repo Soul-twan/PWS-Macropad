@@ -7,4 +7,5 @@ Microcontroller setup guide:
   2. Download the latest release of the microcontroller code 
   3. Extract the downloaded "Microcontroller.code.zip" file 
   4. Move the folder labelled "Microcontroller code" over to the root of the Pico. Be sure to move the entire folder, not just its contents
+
 If done properly, the Pico should disconnect automatically after moving over the folder.
