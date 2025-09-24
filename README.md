@@ -10,4 +10,5 @@ Microcontroller setup guide:
 
 If done properly, the Pico should disconnect automatically after moving over the folder.
 
+
 PCB designed with KiCad 9.0 and should work with PCB ordering services such as PCBWay.
