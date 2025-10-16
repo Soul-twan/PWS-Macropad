@@ -1,4 +1,4 @@
-/*********************************************************************
+ /*********************************************************************
  Based on example code by Adafruit
  
  MIT license, check LICENSE for more information
@@ -25,10 +25,14 @@ const int keymapSwitcherPin = encoderOneBtn;
 bool keymapSwitcherUsed = false;
 int keymapIndex = 0;
 // For list of controls check out https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
-// [0] mouse button, [1] mouse delta, [2] mouse X direction, [3] mouse Y direction, [4] scroll delta [5] scroll vertical, [6] scroll horizontal, [7-12] 6 x keyboard keys, [13] consumer control
+// [0] mouse button, [1] mouse delta, [2] mouse X direction, [3] mouse Y direction, [4] scroll delta [5] scroll y direction, [6] scroll x direction, [7-12] 6 x keyboard keys, [13] consumer control
 // value should be 0 if not applicable
 // mouse direction = 0 if no movement
-// mouse button and mouse movement can't happen in the same macro
+// [2] = -1 for left and 1 for right
+// [3] = -1 for up and 1 for down
+// [5] = -1 for right and 1 for left
+// [6] = -1 for left and 1 for right
+// mouse button and mouse movement can't happen on the same key
 const int keymap[3][12][14] = {
   {{0, 0, 0, 0, 0, 0, 0, HID_KEY_F13, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_F14, 0, 0, 0, 0, 0, 0},
@@ -43,18 +47,18 @@ const int keymap[3][12][14] = {
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_F23, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_F24, 0, 0, 0, 0, 0, 0}},
 
-  {{0, 0, 0, 0, 0, 0, 0, HID_KEY_7, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_8, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_9, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_4, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_5, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_6, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_1, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_2, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_3, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_PERIOD, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_0, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, HID_KEY_ENTER, 0, 0, 0, 0, 0, 0}},
+  {{MOUSE_BUTTON_LEFT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {MOUSE_BUTTON_MIDDLE, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {MOUSE_BUTTON_RIGHT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 10, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 10, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, HID_KEY_SCROLL_LOCK, 0, 0, 0, 0, 0, 0},
+  {0, 10, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 0},
+  {0, 10, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0}},
 
   {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_SCAN_PREVIOUS_TRACK},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, HID_USAGE_CONSUMER_SCAN_NEXT_TRACK},
