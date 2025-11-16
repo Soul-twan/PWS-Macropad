@@ -3,6 +3,8 @@ Code and files we wrote for a school research project.
 This project uses a Raspberry Pi Pico 2 family microcontroller to make a reprogrammable macropad. The microncontroller code is based on code from the Adafruit TinyUSB Library for Arduino (https://github.com/adafruit/Adafruit_TinyUSB_Arduino/blob/master/examples/HID/hid_composite/hid_composite.ino).
 
 Microcontroller setup guide:
+-
+
   1. Connect the microcontroller to your computer as a mass storage device by holding the button labelled "Bootsel" while plugging the USB-connector into your computer, it should show up as "RP2350"
   2. Download the latest release of the microcontroller code 
   3. Extract the downloaded "Microcontroller.code.zip" file 
@@ -10,11 +12,13 @@ Microcontroller setup guide:
 
 If done properly, the Pico should disconnect automatically after moving over the folder.
 
-
+PCB:
+-
 PCB designed with KiCad 9.0 and should work with PCB ordering services such as PCBWay.
 
 
 Standard keymaps:
+-
 
 Encoders:
  1. Press: switch keymap, Turn: change screen brightness
@@ -64,3 +68,18 @@ Keymap 3: Various shortcuts
  10. Calculator
  11. Screenshot
  12. Delete
+
+Components:
+- 
+Off the shelf:
+ - PEC12R-4217F-S0024 rotary encoder
+ - Kaihl hotswap sockets for cherry mx
+ - Cherry MX keyswitches
+ - Raspberry Pi Pico 2 + socket
+ - Keycaps for cherry mx (optional)
+
+Custom:
+ - PCB
+ - 3d printed case
+ - 3d printed knobs
+ - 3d printed keycaps
