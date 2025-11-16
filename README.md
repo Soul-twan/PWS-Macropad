@@ -12,3 +12,55 @@ If done properly, the Pico should disconnect automatically after moving over the
 
 
 PCB designed with KiCad 9.0 and should work with PCB ordering services such as PCBWay.
+
+
+Standard keymaps:
+
+Encoders:
+ 1. Press: switch keymap, Turn: change screen brightness
+ 2. Press: mute volume, Turn: change volume
+
+Keymap 1:  Sends signals to the companion app
+
+  1. F13
+  2. F14
+  3. F15
+  4. F16
+  5. F17
+  6. F18
+  7. F19
+  8. F20
+  9. F21
+  10. F22
+  11. F23
+  12. F24
+
+Keymap 2: Mouse
+
+ 1. Left click
+ 2. Middle click
+ 3. Right click
+ 4. Scroll up
+ 5. Move mouse up
+ 6. Scroll down
+ 7. Move mouse left
+ 8. Scroll lock
+ 9. Move mouse right
+ 10. Scroll left
+ 11. Move mouse down
+ 12. Scroll right
+
+Keymap 3: Various shortcuts
+
+ 1. Previous track
+ 2. Next track
+ 3. Play/pause
+ 4. Ctrl + x
+ 5. Ctrl + c
+ 6. Ctrl + v
+ 7. Ctrl + z
+ 8. Ctrl + s
+ 9. Alt + tab
+ 10. Calculator
+ 11. Screenshot
+ 12. Delete
