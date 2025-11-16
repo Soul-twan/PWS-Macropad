@@ -24,15 +24,72 @@ const int keymapSwitcherPin = encoderOneBtn;
 
 bool keymapSwitcherUsed = false;
 int keymapIndex = 0;
-// For list of controls check out https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
-// [0] mouse button, [1] mouse delta, [2] mouse X direction, [3] mouse Y direction, [4] scroll delta [5] scroll y direction, [6] scroll x direction, [7-12] 6 x keyboard keys, [13] consumer control
-// value should be 0 if not applicable
-// mouse direction = 0 if no movement
-// [2] = -1 for left and 1 for right
-// [3] = -1 for up and 1 for down
-// [5] = -1 for right and 1 for left
-// [6] = -1 for left and 1 for right
-// mouse button and mouse movement can't happen on the same key
+
+/*
+Layout:
+_________________________________________________
+|              ____             ____            |
+|             / e1 \           / e2 \           |
+|             \____/           \____/           |
+|                                               |
+|  __________       __________      __________  |
+|  |        |       |        |      |        |  |
+|  |    1   |       |    2   |      |    3   |  |
+|  |________|       |________|      |________|  |
+|  __________       __________      __________  |
+|  |        |       |        |      |        |  |
+|  |    4   |       |    5   |      |    6   |  |
+|  |________|       |________|      |________|  |
+|  __________       __________      __________  |
+|  |        |       |        |      |        |  |
+|  |    7   |       |    8   |      |    9   |  |
+|  |________|       |________|      |________|  |
+|  __________       __________      __________  |
+|  |        |       |        |      |        |  |
+|  |    10  |       |    11  |      |    12  |  |
+|  |________|       |________|      |________|  |
+|_______________________________________________|
+
+The keymap array is structured as follows:
+
+{ Keymap 1 {
+  Key 1 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]},
+  Key 2 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]},
+  .
+  .
+  .
+  Key 12 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]}},
+Keymap 2 {
+  Key 1 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]},
+  Key 2 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]},
+  .
+  .
+  .
+  Key 12 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]}},
+Keymap 3 {
+  Key 1 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]},
+  Key 2 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]},
+  .
+  .
+  .
+  Key 12 {[0],[1],[2],[3],[4],[5],[6]},[7],[8],[9],[10],[11],[12],[13]}}
+}
+
+
+For a list of all possible controls go to https://github.com/hathach/tinyusb/blob/master/src/class/hid/hid.h
+[0] mouse button
+[1] mouse delta
+[2] mouse X direction:   -1 for left and 1 for right
+[3] mouse Y direction:   -1 for up and 1 for down
+[4] scroll delta
+[5] scroll y direction:  -1 for right and 1 for left
+[6] scroll x direction:  -1 for left and 1 for right
+[7-12] keyboard keys
+[13] consumer control
+Value should be 0 if not applicable
+Mouse direction = 0 if no movement
+Mouse button and mouse movement can't happen on the same key
+*/
 const int keymap[3][12][14] = {
   {{0, 0, 0, 0, 0, 0, 0, HID_KEY_F13, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, HID_KEY_F14, 0, 0, 0, 0, 0, 0},
@@ -252,7 +309,6 @@ void keys() {
             keycode[codeIndex] = keymap[keymapIndex][pinIndex][(codeIndex + 7)];
           }
 
-          //I don't know what the 0 means
           usb_hid.keyboardReport(RID_KEYBOARD, 0, keycode);
           pressedKeyPin = buttonPins[pinIndex];
           hasKeyboardKey = true;
