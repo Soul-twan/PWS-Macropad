@@ -16,6 +16,19 @@ PCB:
 -
 PCB designed with KiCad 9.0 and should work with PCB ordering services such as PCBWay.
 
+Code compilation guide:
+-
+
+  1. Download the Arduino IDE
+  2. Open MicrocontrollerCode.ino in the IDE
+  3. In the menubar go to File > Preferences > Settings and add "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json" to the Additional boards manager URLs
+  4. In the boards manager in the sidebar install "Raspberry Pi Pico/RP2040/RP2350" by Earle F. Philhower, |||
+  5. In the library manager in the sidebar install "Adafruit TinyUSB Library" by Adafruit
+  6. In the dropdown below the menubar press "Select other boards and port...", then select the USB port that the raspberry pi is connected to and search and select the correct Raspberry Pi Pico model
+  7. In the menubar go to Tools > USB Stack and select Adafruit TinyUSB\
+  8. Press upload
+
+If done prperly, the code should be compiled and automatically uploaded to the microcontroller
 
 Standard keymaps:
 -
