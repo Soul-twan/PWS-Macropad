@@ -28,7 +28,7 @@ Code compilation guide:
   7. In the menubar go to Tools > USB Stack and select Adafruit TinyUSB\
   8. Press upload
 
-If done prperly, the code should be compiled and automatically uploaded to the microcontroller
+If done properly, the code should be compiled and automatically uploaded to the microcontroller
 
 Standard keymaps:
 -
